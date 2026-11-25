@@ -1,0 +1,71 @@
+name: Build & Release Windows EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0)"
+        required: true
+        default: "v1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Pre-fetch PP-OCRv5 mobile models for bundling
+        run: |
+          python -c "from rapidocr import LangDet, LangRec, ModelType, OCRVersion, RapidOCR; RapidOCR(params={'Det.ocr_version': OCRVersion.PPOCRV5, 'Det.lang_type': LangDet.CH, 'Det.model_type': ModelType.MOBILE, 'Rec.ocr_version': OCRVersion.PPOCRV5, 'Rec.lang_type': LangRec.LATIN, 'Rec.model_type': ModelType.MOBILE, 'Global.use_cls': False})"
+
+      - name: Build standalone VHGameTranslator.exe
+        run: python build_exe.py
+
+      - name: Prepare Release Notes
+        shell: pwsh
+        run: |
+          $tag = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } else { "${{ inputs.tag }}" }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          @'
+          ## VH Translator — Bản phát hành Windows (64-bit)
+
+          Ứng dụng dịch màn hình game thời gian thực kiểu **WindowTranslator** dành cho Windows 10/11 (*made by Hưng*).
+
+          ### Hướng dẫn tải & sử dụng
+          1. Tải file **`VHGameTranslator.exe`** ở mục **Assets** bên dưới.
+          2. Đặt vào một thư mục riêng và mở trực tiếp (không cần cài Python hay thư viện ngoài).
+          3. Đặt game ở chế độ **Borderless Windowed** hoặc **Windowed**, chọn cửa sổ game hoặc khoanh vùng phụ đề rồi bấm **Bắt đầu dịch** (`Alt + T`).
+
+          ### Điểm nổi bật
+          - **OCR đa font PP-OCRv5 tích hợp sẵn** (chạy offline) đọc chuẩn font nghệ thuật, chữ viết tay, chữ trên nền giấy da, cùng 2 chế độ **Windows OCR + Tăng nét** và **Windows OCR Nhanh**.
+          - **Lớp phủ trực tiếp đè lên chữ gốc**: click xuyên qua, tự ẩn khỏi ảnh chụp màn hình (`WDA_EXCLUDEFROMCAPTURE`), chống chồng khung 2 chiều và tự lấy màu nền thích ứng.
+          - **Đa API dịch + chế độ Hybrid**: Google Translate HTTP/2 (~45 ms, miễn phí), Google Gemini API, Groq / Cerebras / DeepSeek / OpenAI / Ollama.
+          - **Phím tắt toàn cục (`RegisterHotKey`)**: `Alt + T` (Bật/Tắt dịch), `Alt + S` (Dịch một lần), `Alt + H` (Ẩn/Hiện lớp phủ).
+          '@ | Set-Content -Path release_notes.md -Encoding utf8
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: VH Translator ${{ env.RELEASE_TAG }}
+          body_path: release_notes.md
+          files: dist/VHGameTranslator.exe
+          draft: false
+          prerelease: false

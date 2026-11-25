@@ -1,0 +1,28 @@
+# Python & Virtual Environments
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Build & Packaging Artifacts
+build/
+dist/
+*.exe
+*.spec
+app_icon.ico
+app_splash.png
+
+# Runtime Cache & Logs
+translation_cache.json
+crash.log
+selftest_result.txt
+*.json.tmp
+
+# Local IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
