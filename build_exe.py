@@ -104,7 +104,7 @@ from PyInstaller.utils.hooks import collect_all, collect_dynamic_libs, collect_d
 datas = {datas!r}
 binaries = []
 hiddenimports = [
-    'h2', 'hpack', 'hyperframe',
+    'h2', 'hpack', 'hyperframe', 'rapidfuzz',
     'onnxruntime', 'cv2', 'pyclipper', 'shapely', 'omegaconf',
     'winrt.runtime',
     'winrt.windows.foundation',

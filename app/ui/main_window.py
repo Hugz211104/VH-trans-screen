@@ -649,13 +649,16 @@ class MainWindow(QMainWindow):
         grid = QGridLayout()
         grid.setHorizontalSpacing(8)
         grid.setVerticalSpacing(4)
+        self.lbl_m_cap = QLabel("-- ms")
         self.lbl_m_ocr = QLabel("-- ms")
         self.lbl_m_tr = QLabel("-- ms")
         self.lbl_m_cache = QLabel(str(len(self.cache)))
+        self.lbl_m_cap.setProperty("class", "monoVal")
         self.lbl_m_ocr.setProperty("class", "monoVal")
         self.lbl_m_tr.setProperty("class", "monoAccent")
         self.lbl_m_cache.setProperty("class", "monoVal")
         for row_i, (k_text, val_lbl) in enumerate([
+            ("Chụp / So", self.lbl_m_cap),
             ("OCR", self.lbl_m_ocr),
             ("Dịch", self.lbl_m_tr),
             ("Bộ nhớ đệm", self.lbl_m_cache),
@@ -829,9 +832,9 @@ class MainWindow(QMainWindow):
         lbl_p.setProperty("class", "caption")
         preset_row.addWidget(lbl_p)
         for text, ms, max_w in [
-            ("Nhanh — 120 ms / 1280 px", 120, 1280),
-            ("Cân bằng — 200 ms / 1280 px", 200, 1280),
-            ("Chữ nhỏ — 250 ms / Gốc", 250, 0),
+            ("Siêu tốc — 60 ms / 640 px", 60, 640),
+            ("Cân bằng — 80 ms / 960 px", 80, 960),
+            ("Chữ nhỏ — 120 ms / 1280 px", 120, 1280),
         ]:
             chip = QPushButton(text)
             chip.setProperty("class", "chipBtn")
@@ -857,17 +860,19 @@ class MainWindow(QMainWindow):
 
         self.cmb_ocr_res = QComboBox()
         self.cmb_ocr_res.setFixedHeight(36)
-        self.cmb_ocr_res.addItem("Giới hạn 1280 px (nhanh, chuẩn cho 1080p–2K)", 1280)
-        self.cmb_ocr_res.addItem("Giới hạn 1600 px (nét hơn cho màn 4K)", 1600)
+        self.cmb_ocr_res.addItem("Giới hạn 640 px (nhanh nhất cho vùng phụ đề cắt gọn)", 640)
+        self.cmb_ocr_res.addItem("Giới hạn 960 px (cân bằng tốc độ và độ nét)", 960)
+        self.cmb_ocr_res.addItem("Giới hạn 1280 px (nét hơn cho toàn cửa sổ 1080p–2K)", 1280)
+        self.cmb_ocr_res.addItem("Giới hạn 1600 px (màn hình 4K)", 1600)
         self.cmb_ocr_res.addItem("Độ phân giải gốc (dùng khi chữ quá nhỏ)", 0)
         form.addRow("Độ phân giải OCR", self.cmb_ocr_res)
 
         interval_row = QHBoxLayout()
         interval_row.setSpacing(12)
         self.sld_interval = QSlider(Qt.Orientation.Horizontal)
-        self.sld_interval.setRange(80, 1500)
-        self.sld_interval.setSingleStep(20)
-        self.lbl_interval = QLabel("120 ms")
+        self.sld_interval.setRange(50, 1200)
+        self.sld_interval.setSingleStep(10)
+        self.lbl_interval = QLabel("80 ms")
         self.lbl_interval.setProperty("class", "monoAccent")
         self.lbl_interval.setFixedWidth(56)
         self.lbl_interval.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -925,18 +930,28 @@ class MainWindow(QMainWindow):
             row.clicked.connect(self._select_provider)
             e_lay.addWidget(row)
 
-        # Quiet inset for Hybrid mode inside the engine card
+        # Quiet inset for Hybrid, Tiered Routing & Streaming inside the engine card
         self.hybrid_inset = QFrame()
         self.hybrid_inset.setProperty("class", "insetCard")
         h_lay = QVBoxLayout(self.hybrid_inset)
         h_lay.setContentsMargins(16, 12, 16, 12)
-        h_lay.setSpacing(4)
-        self.chk_hybrid_fast = ToggleSwitch("Hiện bản dịch nhanh trước (~45 ms), AI cập nhật ngầm sau")
+        h_lay.setSpacing(8)
+        self.chk_tiered_routing = ToggleSwitch(
+            "Chia 2 luồng dịch (nút bấm 1–4 từ dịch nhanh ~45 ms, hội thoại dài dùng AI)"
+        )
+        self.chk_stream_llm = ToggleSwitch(
+            "Đổ chữ trực tiếp từng phần khi AI trả lời (Streaming giảm TTFT)"
+        )
+        self.chk_hybrid_fast = ToggleSwitch(
+            "Hiện bản dịch nhanh trước (~45 ms), AI cập nhật ngầm sau"
+        )
         h_desc = QLabel(
-            "Khi bạn chuyển sang đoạn thoại mới, bản dịch cũ đang đợi AI sẽ tự hủy để không làm chậm câu tiếp theo"
+            "Khi bạn bấm qua thoại mới, yêu cầu AI cũ sẽ tự hủy ngay để không nghẽn băng thông và không đè chữ cũ"
         )
         h_desc.setProperty("class", "caption")
         h_desc.setWordWrap(True)
+        h_lay.addWidget(self.chk_tiered_routing)
+        h_lay.addWidget(self.chk_stream_llm)
         h_lay.addWidget(self.chk_hybrid_fast)
         h_lay.addWidget(h_desc)
         e_lay.addWidget(self.hybrid_inset)
@@ -1219,8 +1234,12 @@ class MainWindow(QMainWindow):
             "Tránh dịch nhầm chỉ số hệ thống và giảm tải cho bộ máy dịch khi cảnh chuyển động liên tục",
         )
         self.chk_filter_hud = ToggleSwitch("Bỏ qua chữ HUD như FPS, la bàn, khoảng cách và đồng hồ")
+        self.chk_text_mask_diff = ToggleSwitch(
+            "Lọc mặt nạ chữ khi so khung hình (bỏ qua chuyển động sóng, mây, nền 3D)"
+        )
         self.chk_show_mini_hud = ToggleSwitch("Tự mở thanh nổi ở góc màn hình khi bắt đầu dịch")
         f_lay.addWidget(self.chk_filter_hud)
+        f_lay.addWidget(self.chk_text_mask_diff)
         f_lay.addWidget(self.chk_show_mini_hud)
 
         diff_row = QHBoxLayout()
@@ -1323,15 +1342,18 @@ class MainWindow(QMainWindow):
         if r_idx >= 0:
             self.cmb_ocr_res.setCurrentIndex(r_idx)
 
-        self.sld_interval.setValue(max(80, min(1500, c.scan_interval_ms)))
+        self.sld_interval.setValue(max(50, min(1200, c.scan_interval_ms)))
         self.lbl_interval.setText(f"{self.sld_interval.value()} ms")
         self.chk_merge_lines.setChecked(c.merge_lines)
         self.chk_filter_hud.setChecked(c.filter_hud_noise)
+        self.chk_text_mask_diff.setChecked(c.text_mask_diff)
         self.chk_show_mini_hud.setChecked(c.show_mini_hud)
         self.sld_diff.setValue(max(5, min(80, int(round(c.change_threshold * 10)))))
         self.lbl_diff.setText(f"{self.sld_diff.value() / 10.0:.1f}")
 
         self._select_provider(c.provider)
+        self.chk_tiered_routing.setChecked(c.tiered_routing)
+        self.chk_stream_llm.setChecked(c.stream_llm)
         self.chk_hybrid_fast.setChecked(c.hybrid_fast_preview)
         self.txt_target_lang.setText(c.target_language)
         self.txt_gemini_key.setText(c.gemini_api_key)
@@ -1377,10 +1399,13 @@ class MainWindow(QMainWindow):
         c.scan_interval_ms = self.sld_interval.value()
         c.merge_lines = self.chk_merge_lines.isChecked()
         c.filter_hud_noise = self.chk_filter_hud.isChecked()
+        c.text_mask_diff = self.chk_text_mask_diff.isChecked()
         c.show_mini_hud = self.chk_show_mini_hud.isChecked()
         c.change_threshold = self.sld_diff.value() / 10.0
 
         c.provider = self._selected_provider
+        c.tiered_routing = self.chk_tiered_routing.isChecked()
+        c.stream_llm = self.chk_stream_llm.isChecked()
         c.hybrid_fast_preview = self.chk_hybrid_fast.isChecked()
         c.target_language = self.txt_target_lang.text().strip() or "vi"
         c.gemini_api_key = self.txt_gemini_key.text().strip()
@@ -1662,6 +1687,7 @@ class MainWindow(QMainWindow):
                 thread.overlay_geometry_changed,
                 thread.status_changed,
                 thread.metrics_updated,
+                thread.stage_profiled,
                 thread.error_occurred,
                 thread.finished,
             ):
@@ -1710,6 +1736,7 @@ class MainWindow(QMainWindow):
         self.worker.overlay_geometry_changed.connect(self.overlay.set_physical_geometry)
         self.worker.status_changed.connect(self._on_status_changed)
         self.worker.metrics_updated.connect(self._on_metrics_updated)
+        self.worker.stage_profiled.connect(self._on_stage_profiled)
         self.worker.error_occurred.connect(self._on_error)
         self.worker.finished.connect(self._on_worker_finished)
         self.worker.start()
@@ -1778,6 +1805,7 @@ class MainWindow(QMainWindow):
         self.oneshot_worker.overlay_geometry_changed.connect(self.overlay.set_physical_geometry)
         self.oneshot_worker.status_changed.connect(self._on_status_changed)
         self.oneshot_worker.metrics_updated.connect(self._on_metrics_updated)
+        self.oneshot_worker.stage_profiled.connect(self._on_stage_profiled)
         self.oneshot_worker.error_occurred.connect(self._on_error)
         self.oneshot_worker.start()
         self.lbl_status.setText("Đang quét và dịch một lần")
@@ -1804,6 +1832,13 @@ class MainWindow(QMainWindow):
         self.lbl_m_mode.setText(mode_label)
         if self.mini_hud.isVisible():
             self.mini_hud.update_latency(total_ms, mode_label)
+
+    def _on_stage_profiled(
+        self, cap_ms: float, diff_ms: float, _ocr_ms: int, ttft_ms: int, total_tr_ms: int
+    ) -> None:
+        self.lbl_m_cap.setText(f"{cap_ms:.1f} / {diff_ms:.1f} ms")
+        if 0 < ttft_ms < total_tr_ms - 40:
+            self.lbl_m_tr.setText(f"{ttft_ms}/{total_tr_ms} ms")
 
     def _on_status_changed(self, text: str) -> None:
         self.lbl_status.setText(text)

@@ -447,7 +447,7 @@ class RapidOcrGameEngine:
 
     def _ensure_engine_locked(self, language_tag: str, max_width: int) -> None:
         bucket = self._lang_bucket(language_tag)
-        target_side = 1280 if max_width == 0 or max_width >= 1600 else 960
+        target_side = 1280 if max_width == 0 else max(640, min(1280, int(max_width)))
         if (
             self._engine is not None
             and self._lang_bucket(self._language_tag) == bucket

@@ -14,6 +14,7 @@ def get_app_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+APP_VERSION = "1.1.0"
 APP_DIR = get_app_dir()
 CONFIG_PATH = APP_DIR / "settings.json"
 CACHE_PATH = APP_DIR / "translation_cache.json"
@@ -31,16 +32,19 @@ class AppConfig:
     ocr_engine: str = "rapidocr"  # "rapidocr" (PP-OCRv5 multi-font), "windows_enhanced", "windows"
     ocr_language: str = "en-US"  # Language tag (e.g., en-US, ja, zh-Hans-CN, ko)
     ocr_min_confidence: float = 0.55
-    scan_interval_ms: int = 150
-    ocr_max_width: int = 1280  # 0 = native, 1280 = fast sweet-spot, 1600 = sharp
+    scan_interval_ms: int = 80
+    ocr_max_width: int = 960  # 0 = native, 640 = ultra-fast, 960 = balanced, 1280 = sharp
     merge_lines: bool = True
     filter_hud_noise: bool = True  # Skip FPS/timers/compass/3D noise artifacts
+    text_mask_diff: bool = True  # High-contrast glyph mask diff (ignores moving 3D backgrounds)
     min_text_length: int = 2
-    change_threshold: float = 1.6  # Frame diff threshold (0-255)
+    change_threshold: float = 1.6  # Frame diff sensitivity (0.5-8.0)
 
     # Translation API settings
     provider: str = "google_free"  # "google_free", "gemini", "openai"
     hybrid_fast_preview: bool = True  # Show ~45ms HTTP/2 preview immediately while AI refines in background
+    tiered_routing: bool = True  # Route short 1-4 word UI labels to fast endpoint, long dialogue to LLM
+    stream_llm: bool = True  # Stream LLM tokens live onto overlay for lowest TTFT
     target_language: str = "vi"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash-lite"
@@ -48,9 +52,7 @@ class AppConfig:
     openai_base_url: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o-mini"
     game_context: str = (
-        "Đây là văn bản trong game (hội thoại, giao diện, kỹ năng, vật phẩm). "
-        "Hãy dịch sang tiếng Việt tự nhiên, ngắn gọn, đúng văn phong game thủ, "
-        "giữ nguyên tên riêng nếu cần và không giải thích thêm."
+        "Dịch văn bản game sang tiếng Việt tự nhiên, ngắn gọn, đúng văn phong game thủ, giữ tên riêng."
     )
     use_cache: bool = True
 

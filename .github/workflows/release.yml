@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v1.0.0)"
+        description: "Release tag (e.g. v1.1.0)"
         required: true
-        default: "v1.0.0"
+        default: "v1.1.0"
 
 permissions:
   contents: write
@@ -43,7 +43,7 @@ jobs:
       - name: Prepare Release Notes
         shell: pwsh
         run: |
-          $tag = "v1.0.0"
+          $tag = "v1.1.0"
           if ("${{ github.ref_type }}" -eq "tag" -and "${{ github.ref_name }}") {
             $tag = "${{ github.ref_name }}"
           } elseif ("${{ github.event.inputs.tag }}") {
@@ -51,20 +51,21 @@ jobs:
           }
           "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           @'
-          ## VH Translator — Bản phát hành Windows (64-bit)
+          ## VH Translator v1.1.0 — Bản phát hành Windows (64-bit)
 
           Ứng dụng dịch màn hình game thời gian thực kiểu **WindowTranslator** dành cho Windows 10/11 (*made by Hưng*).
 
           ### Hướng dẫn tải & sử dụng
           1. Tải file **`VHGameTranslator.exe`** ở mục **Assets** bên dưới.
-          2. Đặt vào một thư mục riêng và mở trực tiếp (không cần cài Python hay thư viện ngoài).
+          2. Đặt vào một thư mục riêng và mở trực tiếp (đã tích hợp sẵn Python, Visual C++ runtime và model đa font `PP-OCRv5`, không cần cài Python).
           3. Đặt game ở chế độ **Borderless Windowed** hoặc **Windowed**, chọn cửa sổ game hoặc khoanh vùng phụ đề rồi bấm **Bắt đầu dịch** (`Alt + T`).
 
-          ### Điểm nổi bật
-          - **OCR đa font PP-OCRv5 tích hợp sẵn** (chạy offline) đọc chuẩn font nghệ thuật, chữ viết tay, chữ trên nền giấy da, cùng 2 chế độ **Windows OCR + Tăng nét** và **Windows OCR Nhanh**.
-          - **Lớp phủ trực tiếp đè lên chữ gốc**: click xuyên qua, tự ẩn khỏi ảnh chụp màn hình (`WDA_EXCLUDEFROMCAPTURE`), chống chồng khung 2 chiều và tự lấy màu nền thích ứng.
-          - **Đa API dịch + chế độ Hybrid**: Google Translate HTTP/2 (~45 ms, miễn phí), Google Gemini API, Groq / Cerebras / DeepSeek / OpenAI / Ollama.
-          - **Phím tắt toàn cục (`RegisterHotKey`)**: `Alt + T` (Bật/Tắt dịch), `Alt + S` (Dịch một lần), `Alt + H` (Ẩn/Hiện lớp phủ).
+          ### Cải tiến nổi bật bản v1.1.0
+          - **Chia 2 luồng dịch (Tiered Routing)**: nút bấm 1–4 từ chạy thẳng luồng HTTP/2 nhanh (~45 ms), hội thoại dài đẩy lên AI.
+          - **SSE Streaming & Prompt gọn (< 75 token)**: đổ chữ trực tiếp lên lớp phủ cho cả Gemini và OpenAI/Groq/Cerebras/Ollama; sửa lỗi cắt cụt câu trên Gemini.
+          - **Cache 2 tầng với `rapidfuzz`**: tầng 1 hash (~0.01 ms) + tầng 2 so mờ C++ (≥ 93%, ~0.3 ms) bắt lỗi OCR lệch 1–2 ký tự.
+          - **Mặt nạ chữ chống nền 3D động (`< 0.2 ms`)**: loại bỏ hầu hết lượt OCR thừa khi sóng, mây, ánh sáng chuyển động phía sau phụ đề.
+          - **Pipeline Drop-Oldest 1 phần tử + Trigger chữ chạy thông minh + Hủy ngang (Preemptive Cancel)** + hiển thị đo độ trễ 4 khâu trực tiếp.
           '@ | Set-Content -Path release_notes.md -Encoding utf8
 
       - name: Publish GitHub Release
